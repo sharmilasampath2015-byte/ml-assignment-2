@@ -95,16 +95,3 @@ streamlit run streamlit_app.py
 - Deploy on Streamlit Community Cloud: push repository to GitHub, then create a new app on https://streamlit.io/cloud and point it to your `streamlit_app.py`.
 
 
-**Submission notes**
-
-- Include this `README.md` content in your final submitted PDF.
-- Include one screenshot from the BITS Virtual Lab showing the notebook output with the comparison table and at least one plot (this is required proof of execution).
-
-
----
-
-If you want, I can now:
-- Fill the Comparison Table automatically with the `results_df` produced by the notebook (I can update `README.md` with measured numbers), or
-- Patch the notebook to ensure all save paths use `models/` consistently and create the folder automatically.
-
-The `README.md` I created is at: [README.md](ML_Assignment_2/README.md)
