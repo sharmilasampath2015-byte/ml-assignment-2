@@ -3,6 +3,8 @@ import pandas as pd
 import numpy as np
 import pickle
 import os
+import json
+import requests
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import confusion_matrix, classification_report
 import matplotlib.pyplot as plt
@@ -39,9 +41,48 @@ def load_models_and_data():
     models = {}
     model_names = ['logistic_regression', 'decision_tree', 'knn', 'naive_bayes', 'random_forest', 'xgboost']
     
+    # Helper: obtain model/scaler/metrics URLs from Streamlit secrets or env var
+    def _get_model_urls():
+        urls = {}
+        try:
+            urls = st.secrets.get("model_urls", {}) or {}
+        except Exception:
+            urls = {}
+
+        if not urls:
+            env = os.environ.get("MODEL_URLS")
+            if env:
+                try:
+                    urls = json.loads(env)
+                except Exception:
+                    urls = {}
+        return urls
+
+    def _download_file(url, dest_path):
+        try:
+            resp = requests.get(url, stream=True, timeout=30)
+            resp.raise_for_status()
+            os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+            with open(dest_path, 'wb') as fh:
+                for chunk in resp.iter_content(chunk_size=8192):
+                    if chunk:
+                        fh.write(chunk)
+            return True, None
+        except Exception as e:
+            return False, str(e)
+
+    urls = _get_model_urls()
+
     for name in model_names:
         try:
             model_path = f'models/{name}.pkl'
+            # If not present locally, try to download from provided URL mapping
+            if not os.path.exists(model_path) and urls.get(name):
+                st.info(f"Downloading {name} from remote storage...")
+                ok, err = _download_file(urls.get(name), model_path)
+                if not ok:
+                    st.warning(f"Failed to download {name}: {err}")
+
             if os.path.exists(model_path):
                 with open(model_path, 'rb') as f:
                     models[name] = pickle.load(f)
@@ -50,6 +91,13 @@ def load_models_and_data():
     
     try:
         scaler_path = 'models/scaler.pkl'
+        # attempt download if missing
+        if not os.path.exists(scaler_path) and urls.get('scaler'):
+            st.info("Downloading scaler from remote storage...")
+            ok, err = _download_file(urls.get('scaler'), scaler_path)
+            if not ok:
+                st.warning(f"Failed to download scaler: {err}")
+
         if os.path.exists(scaler_path):
             with open(scaler_path, 'rb') as f:
                 scaler = pickle.load(f)
@@ -62,6 +110,13 @@ def load_models_and_data():
     # Load metrics CSV
     try:
         metrics_path = 'models/evaluation_metrics.csv'
+        # attempt download if missing
+        if not os.path.exists(metrics_path) and urls.get('evaluation_metrics'):
+            st.info("Downloading evaluation_metrics.csv from remote storage...")
+            ok, err = _download_file(urls.get('evaluation_metrics'), metrics_path)
+            if not ok:
+                st.warning(f"Failed to download evaluation_metrics.csv: {err}")
+
         if os.path.exists(metrics_path):
             metrics_df = pd.read_csv(metrics_path, index_col=0)
         else:
